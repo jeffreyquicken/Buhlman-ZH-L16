@@ -95,44 +95,48 @@ def initialise_compartments():
         json.dump(compartments, f)
 
 
-def calculate_schreiner(p_comp, time, rate, halftime_decay, p_ambient=0.7452):
+def calculate_schreiner(p_i_0, p_0, time, rate, halftime_decay):
     """
     Calculates Schreiner equation; inert pressure in compartment after time at depth
 
-    :param p_comp: initial compartment inert gas pressure
+    :param p_0: initial compartment inert gas pressure
     :param time: time interval
     :param rate: rate of descent times fraction of inert gas
     :param halftime_decay: halftime decay value of compartment (ln(2)/halftime)
-    :param p_ambient: ambient pressure minus water vapor pressure (=0.7452)
+    :param p_i_0: ambient pressure minus water vapor pressure (=0.7452)
     :return: pressure in tissue compartment
     """
-    x1 = rate * (time - 1 / halftime_decay)
-    x2 = p_ambient - p_comp - (rate / halftime_decay)
-    x3 = math.e ** - halftime_decay * time
-    result = round(p_ambient + x1 - x2 * x3, 4)
+    x1 = float(rate) * (float(time) - (1 / float(halftime_decay)))
+    x2 = float(p_i_0) - float(p_0) - (float(rate) / float(halftime_decay))
+    x3 = math.e ** (- float(halftime_decay) * float(time))
+    result = round(float(p_i_0) + x1 - (x2 * x3), 4)
     return result
 
+# descent rate in meters/min
 def evaluate_descent(depth, descent_rate = 30):
     time = depth / descent_rate
     print("time: " + str(time))
-    p_comp_init = (depth - PP_WATERVAPOUR) * fN
-    rate = descent_rate * fN
+    p_i_0 = (depth - PP_WATERVAPOUR) * fN
+    rate = (descent_rate/10) * fN  # descent rate/10 is pressure change in bar/min
     print("rate: " + str(rate))
     with open('compartments.json') as f:
         data = json.load(f)
     for compartment in data:
-        p_comp = data[compartment]["p_N"]
-        print("pcomp: " + str(p_comp))
+        p_0 = data[compartment]["p_N"]
+        print("p_0: " + str(p_0))
         halftime = ZHL16N[compartment]["t"]
         print("halftime: " + str(halftime))
         haltime_decay = math.log(2) / halftime
         print("decay: " + str(haltime_decay))
-        result = calculate_schreiner(p_comp, time, rate, haltime_decay, p_comp_init)
+        result = calculate_schreiner(p_i_0, p_0, time, rate, haltime_decay)
         print(result)
         data[compartment]["p_N"] = result
+        data[compartment]["p_total"] = result + data[compartment]["p_He"]
 
     with open('compartments.json', 'w') as f:
         json.dump(data, f)
+
+
 initialise_compartments()
 
 evaluate_descent(10)
